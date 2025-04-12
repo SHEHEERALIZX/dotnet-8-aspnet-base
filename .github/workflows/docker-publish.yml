@@ -62,11 +62,17 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
 
-      - name: Set custom tags
+      - name: Set tags conditionally
         id: custom_tags
         run: |
           echo "date_tag=$(date +'%Y-%m-%d')" >> "$GITHUB_OUTPUT"
           echo "latest=latest" >> "$GITHUB_OUTPUT"
+          TAG_LIST="type=raw,value=$(date +'%Y-%m-%d')%0Atype=raw,value=latest"
+          if [[ '${{ github.event_name }}' == 'schedule' ]]; then
+            TAG_LIST="${TAG_LIST}%0Atype=raw,value=nightly"
+          fi
+          echo "tag_list=$TAG_LIST" >> "$GITHUB_OUTPUT"
+
 
       # Extract metadata (tags, labels) for Docker
       # https://github.com/docker/metadata-action
@@ -75,10 +81,11 @@ jobs:
         uses: docker/metadata-action@96383f45573cb7f253c731d3b3ab81c87ef81934 # v5.0.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-                type=raw,value=${{ steps.custom_tags.outputs.date_tag }}
-                type=raw,value=${{ steps.custom_tags.outputs.latest }}
-                type=raw,value=nightly
+          tags: ${{ steps.custom_tags.outputs.tag_list }}
+          # tags: |
+          #       type=raw,value=${{ steps.custom_tags.outputs.date_tag }}
+          #       type=raw,value=${{ steps.custom_tags.outputs.latest }}
+          #       type=raw,value=nightly
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
